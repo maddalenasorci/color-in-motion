@@ -1,0 +1,9 @@
+venv/
+data/
+outputs/
+*.mp4
+*.webm
+*.png
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store

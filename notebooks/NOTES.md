@@ -196,3 +196,72 @@ So Action acts as the "default bucket" for uncertain films, not
 because it's frequent, but because it occupies the centre of the
 colour space. This reinforces the conclusion: the central genres lack
 a distinctive colour fingerprint.
+
+## Movie barcodes
+
+Generated two barcode visualisations by genre:
+1. Average colour per genre (rigorous, but muted — averaging colours
+   tends toward dark grey).
+2. Representative trailer per genre (the film closest to its genre's
+   mean brightness) — vivid and readable.
+
+The representative barcodes show clear genre signatures:
+- Horror: dark, blacks and night-blues, red tail toward the end
+- Crime: black with recurring bright RED (noir/violence)
+- Action: varied, cool blues/teals with warm accents (orange-teal look)
+- Drama: cool blues and greys, sober
+- Comedy: lightest and warmest, earthy tones, low contrast
+
+## Key insight: barcodes reveal what the features miss
+
+The classifier fails on Crime, but the Crime barcode shows a STRONG
+signature: recurring bright red. Contradiction? No — it reveals a
+limitation of the features.
+
+The 6 features are means and stds: they average colours over the whole
+trailer and discard time. Crime's red appears at intervals; averaged
+with surrounding black, it becomes an insignificant dark brown in the
+numbers. The model never "sees" the red — only the average.
+
+So: the colour information to identify Crime EXISTS (the eye sees the
+red in the barcode), but mean/std features throw it away. This visually
+justifies why temporal / distributional features (when and how much a
+colour appears) could separate genres that means and stds cannot.
+
+## Movie barcodes — technical steps
+
+### Why a second pass over the trailers was needed
+The colour features table (color_features.csv) only stored summary
+statistics (mean and std of brightness, temperature, saturation).
+It did not store the actual per-frame colours needed to draw barcodes.
+So I re-read the trailers, this time keeping the full colour sequence.
+
+### Step 1 — collect the colour sequence of each trailer
+For every downloaded trailer:
+- extracted one frame per second (extract_frames)
+- computed per-frame metrics (curve_from_frames), which also returns
+  the mean colour of each frame
+- stored the full list of mean colours in a dictionary
+  (barcode_per_film: tconst -> list of RGB colours)
+Result: 133 colour sequences, one per film.
+
+### Step 2 — average barcode per genre
+Trailers have different lengths (120–155 frames), so before averaging
+I normalised each sequence to a fixed length of 100 points
+(linear interpolation on each RGB channel).
+Then, for each genre, I averaged the normalised sequences of all its
+films frame-by-frame.
+Problem: averaging many different colours tends toward dark grey, so
+the average barcodes came out muted and hard to read.
+
+### Step 3 — representative barcode per genre
+To get vivid, readable barcodes I switched approach: instead of
+averaging, I picked one representative film per genre — the film whose
+average brightness is closest to its genre's mean brightness.
+Then I drew that film's real colour sequence (no averaging, true colours).
+This produced clear, readable genre signatures.
+
+### Output
+Two images saved in outputs/:
+- barcode_by_genre.png (average per genre — rigorous but muted)
+- barcode_representative.png (representative trailer per genre — vivid)

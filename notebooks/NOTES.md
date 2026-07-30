@@ -115,3 +115,84 @@ issue became an analysis issue — a good end-to-end lesson.
 ### Next step
 Re-train with balanced classes to check whether the signal holds without
 the "Action crutch".
+
+### Balanced classifier — conclusion
+Re-training with class_weight="balanced" barely changed anything:
+accuracy 47.1% (was 52.9%), and the confusion matrix is almost identical.
+Comedy, Crime, Drama are still all classified as Action; only Horror is
+reliably recognised.
+
+Key insight: balancing didn't help because the problem isn't class
+imbalance — it's that colour alone doesn't carry enough information to
+separate the central genres. They share similar colour signatures.
+
+Final conclusion: colour is a strong predictor for the EXTREME (horror:
+dark and distinct) but cannot separate the central genres. The
+orange-teal / genre-colour intuition holds only for the most visually
+extreme genre.
+
+## Improving the classifier: adding saturation
+
+### Hypothesis
+The first classifier only separates Horror; the central genres
+(Action, Comedy, Crime, Drama) share too-similar colour signatures.
+The 4 features so far only capture brightness and temperature.
+
+Idea: add **saturation** (how vivid vs muted the colours are).
+Maybe Comedy has bright, saturated colours while Drama/Crime are more
+muted — a dimension that brightness and temperature don't capture.
+
+### Plan
+- add saturation to the colour metrics (HSV S channel)
+- re-process all 133 trailers
+- add saturation_mean and saturation_std as features (6 total)
+- re-train and check whether the central genres separate better
+
+### Expected outcome
+Either saturation helps separate the central genres (accuracy up,
+confusion matrix cleaner) — or it doesn't, proving that colour alone,
+even enriched, can't distinguish them. Both are valid results.
+
+## Adding saturation — result
+
+Added saturation (mean + std), going from 4 to 6 features.
+Same train/test split and balanced model as before.
+
+Accuracy: 47.1% → 55.9% (+8.8 points). Hypothesis partly confirmed:
+saturation does add information.
+
+BUT the confusion matrix tells the real story:
+- Action: 15/15, Horror: 4/6 (improved from 3/6)
+- Comedy 0/3, Crime 0/7, Drama 0/3 — still all misclassified as Action
+
+The accuracy gain comes entirely from the genres the model already
+recognised (Action, Horror). The three central genres remain
+indistinguishable by colour.
+
+### Final conclusion of the classifier
+Colour reliably identifies the visual EXTREMES (dark horror, high-contrast
+action) but cannot separate the central genres, which share similar colour
+signatures. Adding saturation raises overall accuracy but does not unlock
+the central genres. Colour alone is not enough for fine-grained genre
+classification — other signals (editing rhythm, audio, motion) would be
+needed.
+
+### Why the central genres collapse into Action (clarification)
+
+Important: Action does NOT win just because it has more films.
+Proof: with class_weight="balanced" (which removes the numeric
+advantage), the behaviour barely changed — central genres still
+collapse into Action. If it were only an imbalance problem, balancing
+would have fixed it.
+
+The real reason: Action is the most cromatically "average" / varied
+genre (dark scenes, bright explosions, warm and cool tones). It sits
+in the middle of the colour space. When the model cannot characterise
+a film (Comedy, Crime, Drama have no distinctive colour signature of
+their own), it assigns it to the most generic/central class — which
+is Action.
+
+So Action acts as the "default bucket" for uncertain films, not
+because it's frequent, but because it occupies the centre of the
+colour space. This reinforces the conclusion: the central genres lack
+a distinctive colour fingerprint.

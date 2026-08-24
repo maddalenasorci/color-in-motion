@@ -345,3 +345,28 @@ saturation features remain best. This triangulates the core conclusion:
 the limit is not feature choice — colour itself, however measured, does
 not carry enough information to distinguish Action/Comedy/Crime/Drama.
 Only the extremes (Horror) are reliably separable.
+
+## Auteur films vs genres: the key comparison
+
+Plotted the 9 auteur films against the 5 genre averages
+(brightness x saturation). See outputs/auteur_vs_genres.png.
+
+Finding: the 5 genres cluster in a TIGHT region (saturation 0.29-0.35,
+except Horror which sits left, darker). This visualises why colour can't
+separate them — they occupy nearly the same colour space.
+
+The auteur films SCATTER in every direction, each breaking the norm:
+- The Elephant Man: saturation ~0.00 (black & white) — total outlier,
+  no genre reaches there.
+- Eternal Sunshine: brightest of all (33), brighter than any genre.
+- All These Sleepless Nights: most saturated (~0.50), neon nightlife.
+- Florida Project, Laurence Anyways, Worst Person, Fish Tank, Mommy:
+  BELOW the genre cluster — less saturated than the average genre,
+  fitting their sober realist palettes.
+
+### The core insight (connects both halves of the project)
+Colour does NOT predict genre (commercial genres cluster together), but
+it does reveal AUTHORSHIP: auteur films leave the cluster, each in a
+deliberate direction. Colour doesn't measure "what genre" — it measures
+how far a film departs from convention. When a director makes a strong
+colour choice, the film exits the crowd.

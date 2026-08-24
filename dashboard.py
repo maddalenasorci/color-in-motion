@@ -46,6 +46,21 @@ st.image("outputs/barcode_representative.png")
 st.write("And the average colour per genre:")
 st.image("outputs/barcode_by_genre.png")
 
+st.subheader("What the barcodes reveal")
+st.write("""
+Look at the Crime barcode: it has a strong, recurring **red** signature —
+much more distinctive than the other genres. Yet the classifier fails on Crime.
+
+Why the contradiction? Because the colour features are averages. Crime's red
+appears at intervals; averaged with the surrounding dark frames, it becomes an
+insignificant brown in the numbers. The eye sees the red in the barcode, but
+the model — working only with means — never does.
+
+This shows the information to identify Crime **exists** in the colour, but the
+mean-based features throw it away. It's the clearest example of why richer,
+time-aware features would be needed to push the classifier further.
+""")
+
 # --- Classifier result ---
 st.header("Can colour predict the genre?")
 

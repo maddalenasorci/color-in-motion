@@ -265,3 +265,83 @@ This produced clear, readable genre signatures.
 Two images saved in outputs/:
 - barcode_by_genre.png (average per genre — rigorous but muted)
 - barcode_representative.png (representative trailer per genre — vivid)
+
+## Auteur films — qualitative colour analysis
+
+Beyond the quantitative work on 133 trailers, I analysed 9 auteur films
+with strong, deliberate cinematography. Here the goal is not classification
+but reading each film's colour signature. The barcodes are far more
+distinct than the genre averages, because these are visually intentional works.
+
+Key observations:
+- **The Elephant Man (1980)** — pure black and white (Lynch shot it in B&W).
+  The barcode is greyscale: here the ABSENCE of colour is the signature.
+- **Eternal Sunshine of the Spotless Mind (2004)** — the most striking: an
+  electric-blue block, then warm yellows and recurring teal. The cold/warm
+  alternation mirrors the film's theme of memory and erasure.
+- **American Honey (2016)** and **Mommy (2014)** — warm, earthy, golden tones
+  (sun, skin, outdoors).
+- **All These Sleepless Nights (2016)** — the most varied and saturated:
+  night blues, oranges, purples — a film about neon-lit youth nightlife.
+- **The Florida Project (2017)** — muted pastels (mauve, faded pink, soft
+  green): the pastel motels of its setting.
+- **The Worst Person in the World / Fish Tank** — sober greys and greens,
+  fitting their realist drama.
+
+Takeaway: when a film has intentional cinematography, colour genuinely
+carries meaning and identity. This is the opposite of the "central genres"
+in the quantitative study, where averaged trailers had no distinctive
+fingerprint. Auteur cinema uses colour as a deliberate language.
+
+## Colour distribution features: the Crime red that isn't there
+
+Hypothesis: the classifier misses Crime, but the Crime barcode shows a
+strong recurring red. So I built colour-distribution features — the
+percentage of frames in each hue family (red, orange, yellow, green,
+blue, purple, dark_neutral) — expecting Crime to score high on red.
+
+Result (average % of frames per genre):
+
+| Genre  | red | dark_neutral | notable |
+|--------|-----|--------------|---------|
+| Horror | 0.1 | 77.7 | overwhelmingly dark/neutral |
+| Action | 0.3 | 58.0 | — |
+| Crime  | 0.3 | 57.9 | almost identical to Action |
+| Drama  | 0.1 | 53.9 | most BLUE (18.6%) |
+| Comedy | 0.0 | 42.9 | least dark, most GREEN (30.6%) |
+
+Key finding: Crime's red is NOT there in the numbers (0.3%, same as
+everyone). The red I saw in the barcode is a few vivid frames — rare in
+FREQUENCY but strong in IMPACT. The eye weights red by how much it
+stands out; the counts weight it by how often it appears. These are
+different things, and the barcode misleads: that red occupies only a
+few seconds.
+
+So even distribution features don't recover Crime — the Crime signal is
+visual/punctual, not statistical. This confirms the deeper conclusion:
+colour separates only the extremes.
+
+What DID emerge (new, vs the mean-based features):
+- Horror is ~78% dark/neutral frames — by far the most colourless.
+- Comedy is the most colourful genre (lowest dark_neutral, most green).
+- Drama is the most blue.
+- Action and Crime are nearly identical in colour distribution — which
+  is exactly why the classifier confuses them.
+
+  ## Distribution features on the classifier — result
+
+Tried the 7 colour-family distributions as classifier features.
+Accuracy: 47.1% — WORSE than the 6 mean-based features (55.9%).
+Confusion matrix: Comedy gained 1 correct (the green), but Horror got
+worse and Crime/Drama still collapse into Action.
+
+### Final verdict on the classifier (three experiments)
+1. Means (brightness, temperature): ~47%
+2. + Saturation (6 features): 55.9% — best
+3. Colour distributions (7 families): 47.1%
+
+No colour-based feature set separates the central genres. The mean+
+saturation features remain best. This triangulates the core conclusion:
+the limit is not feature choice — colour itself, however measured, does
+not carry enough information to distinguish Action/Comedy/Crime/Drama.
+Only the extremes (Horror) are reliably separable.

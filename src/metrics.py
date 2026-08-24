@@ -27,3 +27,52 @@ def curve_from_frames(frames):
         saturation.append(m["saturation"])
         colours.append(m["mean_colour"])
     return brightness, temperature, saturation, colours
+
+def frame_hue_family(frame):
+    """Da un frame RGB dice a quale famiglia di colore appartiene.
+    I frame scuri o poco saturi finiscono in 'dark_neutral'."""
+    hsv = color.rgb2hsv(frame / 255.0)
+    h = hsv[:, :, 0].mean()   # tinta media (0-1)
+    s = hsv[:, :, 1].mean()   # saturazione media
+    v = hsv[:, :, 2].mean()   # luminosita media
+
+    # se e troppo scuro o troppo poco saturo, non ha una tinta vera
+    if v < 0.2 or s < 0.15:
+        return "dark_neutral"
+
+    # altrimenti classifichiamo in base alla tinta (h va da 0 a 1)
+    gradi = h * 360
+    if gradi < 20 or gradi >= 340:
+        return "red"
+    elif gradi < 45:
+        return "orange"
+    elif gradi < 70:
+        return "yellow"
+    elif gradi < 150:
+        return "green"
+    elif gradi < 260:
+        return "blue"
+    else:
+        return "purple"
+
+
+def color_distribution(frames):
+    """Per una lista di frame, conta la percentuale di ogni famiglia di colore."""
+    famiglie = ["red", "orange", "yellow", "green", "blue", "purple", "dark_neutral"]
+
+    # contiamo quanti frame per famiglia
+    conteggi = {}
+    for f in famiglie:
+        conteggi[f] = 0
+
+    for frame in frames:
+        famiglia = frame_hue_family(frame)
+        conteggi[famiglia] = conteggi[famiglia] + 1
+
+    # trasformiamo i conteggi in percentuali
+    totale = len(frames)
+    percentuali = {}
+    for f in famiglie:
+        percentuali[f] = conteggi[f] / totale
+
+    return percentuali

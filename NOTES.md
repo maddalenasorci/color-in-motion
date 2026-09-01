@@ -542,6 +542,117 @@ horizontal bar chart. This answers a natural follow-up question — *of
 the 6 features, which ones does the model actually rely on?* — directly,
 instead of leaving it implicit in the accuracy number alone.
 
+### Two more instances of the same alignment bug
+
+The tconst-sorting fix applied to Fase 1 turned out not to be the whole
+story. The same failure mode reappeared twice more, further along the
+pipeline:
+
+1. `dist_con_genere_bilanciato` (the 79-film Sottocampionato subset for
+   the Distribuzione chain) was built via `pd.concat([action_ridotto,
+   altri_generi])` and never re-sorted — `action_ridotto` is a
+   `.sample()`, so the concat result is not in `tconst` order. The
+   paired significance test (below) sorts both sides internally, so its
+   numbers did not match the officially reported Fase 2 accuracy for
+   this chain until this was fixed.
+2. `color_dist_filtrato_df` / `brightness_temp_filtrato_df` (the "+
+   Filtro cartelli" step, both chains) were built by looping over
+   `trailer_scaricati`, which comes from `os.listdir()` — filesystem
+   order, not alphabetical. This meant the "+ Filtro cartelli" step was
+   evaluated on a *third*, different fold split from the two steps
+   before it in the same chain.
+
+Both fixed the same way: an explicit `.sort_values("tconst")` at the
+point each DataFrame is created, so every downstream `.merge()` (which
+preserves left-frame row order) inherits a consistent order. After
+fixing both, every accuracy number in both chains is computed on
+directly comparable folds.
+
+### The result reverses after the fix
+
+With fold alignment corrected end to end, the accuracy ordering flips
+from the previous write-up:
+
+| Step | Distribuzione | Media |
+|---|---|---|
+| Sottocampionato | 31.8% | 34.2% |
+| + Saturazione | 34.2% | 35.4% |
+| + Filtro cartelli | 34.4% | 38.2% |
+
+Media now leads at every step — the opposite of the "Distribuzione
+wins, margin grows to +9pp" conclusion drawn before these two bugs were
+caught. This is the second time a headline conclusion in this project
+has flipped after a code-level fix, not a new experiment. Worth stating
+plainly: both "wins" were artefacts of unfixed row ordering, not real
+findings. This is why the next step below (formal significance
+testing) was added rather than trusting either ranking at face value.
+
+### Formal significance testing, all three steps
+
+A paired test (`confronta_significativita`: paired t-test + Wilcoxon
+signed-rank as a non-parametric check) was run on the *same* 5 CV folds
+for Distribuzione vs Media, at each of the three chain steps:
+
+| Step | p-value (paired t-test) |
+|---|---|
+| Sottocampionato | 0.559 |
+| + Saturazione | 0.857 |
+| + Filtro cartelli | 0.607 |
+
+None reach significance at alpha = 0.05. Combined with the fact that
+the ranking between the two chains flipped after a pure bug fix (no new
+data, no new method), this is strong practical confirmation that the
+observed differences are noise, not signal: **the project does not
+declare a winning colour representation.** Both are reported; neither is
+presented as superior.
+
+The test was deliberately *not* applied to the Bilanciato-vs-
+Sottocampionato decision in Fase 2: that decision was never based on a
+narrow accuracy margin — Bilanciato was rejected on a categorical
+criterion (0% recognition on entire genres), which a significance test
+would not have changed either way.
+
+## Promoting winning features into MongoDB/SQLite
+
+`ARCHITECTURE.md` originally excluded hue-family distribution and
+title-card filtering from the shared staging/warehouse layers, citing
+the pre-refactor numbers (47.1% vs 55.9%, 52.9% vs 55.9%) as evidence
+they "made the classifier worse" and were used by exactly one process.
+After the refactor above, both numbers are outdated, and both features
+are part of the classifier's active final-stage pipeline (even though
+neither colour representation is now declared the winner) — so the
+rule already stated in `ARCHITECTURE.md` ("a value belongs in the
+shared layer if reused by more than one process, or is part of the
+active pipeline") now argues for promoting them, not excluding them.
+
+### What changed in `05_databases.ipynb`
+
+- Every frame document written to MongoDB now also carries
+  `hue_family` and `is_title_card`, computed with the *same*
+  `e_uniforme` / `trova_frame_cartello` functions used in the
+  classifier notebook (copied verbatim, not re-implemented, to avoid a
+  fourth version of the same heuristic drifting out of sync).
+- A second aggregation pipeline groups on `tconst` after a `$match:
+  {is_title_card: false}` stage, producing `_filtrato` variants of
+  every mean/std feature plus the seven hue-family percentages — the
+  MongoDB equivalent of the notebook's "+ Filtro cartelli" step,
+  computed once centrally instead of re-extracted from video on every
+  notebook run.
+- The SQLite `films` table grew from 11 to 33 columns: the original
+  brightness/temperature/saturation mean+std, seven `colore_*`
+  percentages, six `*_filtrato` mean/std columns, seven
+  `colore_*_filtrato` percentages, and `pct_title_card`.
+
+### Validation
+
+Same method as the original brightness/temperature/saturation
+validation: three sample films were recomputed directly in Python from
+the source video (`color_distribution`, `curve_from_frames` on the
+title-card-filtered frame list) and compared against the MongoDB
+aggregation. All three matched exactly, confirming the
+`hue_family`/`is_title_card` → aggregation pipeline is correct end to
+end, the same standard already applied to the original three metrics.
+
 ## Notebook clean-up and naming
 
 Renumbered/renamed the classifier sections from generic "Experiment

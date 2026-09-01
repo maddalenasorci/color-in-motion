@@ -34,10 +34,15 @@ the genre just by looking at the colour?
 ```
 src/          Reusable functions:
               frames.py   – extract frames from a video
-              metrics.py  – colour metrics (brightness, temperature) in CIELAB
+              metrics.py  – colour metrics (brightness, temperature, saturation,
+                            hue family, colour distribution) in CIELAB/HSV
               plots.py    – draw colour curves and movie barcodes
 notebooks/    Step-by-step analysis, one notebook per phase
-              01_sampling.ipynb – build the film sample and fetch trailer links
+              01_sampling.ipynb        – build the film sample and fetch trailer links
+              03_color_extraction.ipynb – genre classifier: feature choice,
+                                          class balancing, saturation, title-card
+                                          filtering, cross-validation, significance testing
+              05_databases.ipynb       – populate MongoDB staging + SQLite warehouse
 data/         Local only, not tracked on GitHub (raw downloads and processed tables)
 outputs/      Generated charts and figures
 prototype.py  Early end-to-end test on a single trailer
@@ -56,7 +61,8 @@ prototype.py  Early end-to-end test on a single trailer
 - [x] Phase 0 — end-to-end prototype on one trailer
 - [x] Phase 1 — clean project setup
 - [x] Phase 2 — film sampling and trailer links (source table: 399 films)
-- [ ] Phase 3 — trailer download and frame extraction
-- [ ] Phase 4 — storage layers
-- [ ] Phase 5 — analysis and genre classifier
+- [x] Phase 3 — trailer download and frame extraction (133 genre + 9 auteur films)
+- [x] Phase 4 — storage layers (MongoDB staging, SQLite warehouse — see `ARCHITECTURE.md`)
+- [x] Phase 5 — analysis and genre classifier (see `METHODOLOGY.md`; headline result:
+      no colour representation significantly outperforms another — see `NOTES.md`)
 - [ ] Phase 6 — dashboard

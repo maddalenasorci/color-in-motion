@@ -41,6 +41,39 @@ two complete, parallel pipelines**, described below, so the final
 comparison is made at the level of the whole modelling chain, not a
 single early measurement.
 
+**A formal check on the tie, repeated at every step.** Rather than
+relying on eyeballing "52.6% vs 52.6%" as close, a paired t-test (and a
+Wilcoxon signed-rank test as a non-parametric check) was run on the two
+representations' per-fold accuracies, using the *same* 5 cross-validation
+folds for both — a paired comparison, not just two independent means.
+This was repeated at each of the three stages of the modelling chain
+(see "Building the final model" below), not only at this first decision
+point:
+
+| Stage | p-value (paired t-test) |
+|---|---|
+| Undersampled base | 0.559 |
+| + Saturation | 0.857 |
+| + Title-card filtering | 0.607 |
+
+None of the three reach significance at the conventional α = 0.05
+threshold. Combined with the fact that the ranking between the two
+representations reversed after an unrelated code fix (a row-ordering bug
+in the cross-validation folds — see `NOTES.md` for the full account) with
+no new data or method involved, this is treated as strong evidence that
+the observed gaps are sampling noise, not a real difference in
+performance. **The project therefore does not declare a winning colour
+representation.** Both chains are built and reported in full below; the
+final model section names one only as the representation used for the
+worked example, not as a proven superior choice.
+
+With only 5 paired observations per test, statistical power is low — a
+non-significant result does not prove the two representations are
+equivalent, only that this sample size cannot distinguish them
+confidently. This limitation is stated rather than glossed over, since
+it is precisely why the significance test was added: to stop a small,
+possibly meaningless accuracy gap from being reported as a finding.
+
 ### Decision 2 — how to handle Action's over-representation
 
 The sample has 72 Action films out of 133 — substantially more than any

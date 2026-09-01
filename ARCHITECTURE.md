@@ -49,6 +49,8 @@ MongoDB Atlas (free tier).
   "temperature": -1.8,
   "saturation": 0.41,
   "mean_colour": [0.42, 0.31, 0.28],
+  "hue_family": "dark_neutral",
+  "is_title_card": false,
   "gruppo": "genere"
 }
 ```
@@ -58,29 +60,37 @@ MongoDB Atlas (free tier).
 |---|---|---|
 | `brightness`, `temperature`, `saturation` | Per-frame colour metrics (each already a spatial mean over the frame's pixels) | Core features, aggregated (mean + std) into the warehouse and used directly by the classifier |
 | `mean_colour` | Per-frame average RGB colour (3 numbers) | Reused by **more than one** downstream process: the per-genre barcode and the auteur-film barcode both read it directly from Mongo, instead of re-reading the source videos |
+| `hue_family` | Which of 7 hue families the frame falls into (red, orange, yellow, green, blue, purple, dark_neutral) | Promoted here after the classifier refactor (see `NOTES.md`): the "distribuzione colori" representation built from this field is now part of the classifier's active pipeline, not a one-off experiment. Previously recomputed from video on every run; aggregated into per-film percentages by the same MongoDB pipeline as the other metrics |
+| `is_title_card` | Whether the frame is a probable title card / logo, from the same heuristic used in the classifier notebook | Promoted for the same reason as `hue_family`: title-card filtering is now part of the active pipeline ("+ Filtro cartelli" step), not a discarded experiment. Lets the "filtered" aggregates be computed once in MongoDB (`$match` before `$group`) instead of re-detected from video every run |
 | `tconst`, `secondo`, `gruppo` | Identifiers (film, timestamp, genre-set vs auteur-set) | Needed to query and reassemble sequences |
 
 ### What is deliberately NOT in this layer, and why
 The guiding rule: **a value belongs in the shared staging layer only if
-it is reused by more than one downstream process.** Anything computed
-for a single, one-off exploratory analysis stays local to the notebook
-that produced it, and is recomputed from the source video if ever
-needed again. This keeps the staging schema stable — it is not
-rewritten every time a new exploratory idea comes up.
+it is reused by more than one downstream process, or is part of the
+classifier's active pipeline.** Anything computed for a single, one-off
+exploratory analysis stays local to the notebook that produced it, and
+is recomputed from the source video if ever needed again. This keeps
+the staging schema from growing without bound every time a new
+exploratory idea comes up — `hue_family` and `is_title_card` (above)
+used to be here, until the classifier results that had excluded them
+were found to rest on a fold-alignment bug (see `NOTES.md`); once
+corrected, both became part of the active pipeline and were promoted.
 
 | Not included | Why not | Where it's computed instead |
 |---|---|---|
 | Full pixel data of each frame | Volume: ~230,000 pixels per frame × ~18,000 frames ≈ billions of values; no declared use justifies this scale | Never computed at all — the source video remains the ultimate raw layer if ever needed |
-| Hue-family distribution (% red, % green, etc. per frame) | Used by exactly one descriptive experiment (colour distribution by genre); it also made the classifier *worse* (47.1% vs 55.9%), so it does not feed any active process | Recomputed on demand in the notebook, from the source videos, each time the experiment is run |
-| Frame uniformity / "is this a title card" score | Used by exactly one experiment (title-card filtering); did not improve the classifier (52.9% vs 55.9%), so it does not feed any active process | Computed on demand in the notebook, from the source videos |
 
-This is also why the **movie-barcode colour distribution and the
-title-card filter both re-read the source videos** rather than reading
-from Mongo: they need frame-level detail (the full image, or a
-per-frame histogram) that the staging layer intentionally does not
-carry, because no recurring process needs it. `mean_colour` is the one
-exception, because it *is* reused (by the barcodes), so it earned a
-place in the shared layer.
+**Honest caveat on the promotion above:** the classifier notebook
+(`03_color_extraction.ipynb`) has *not* been rewired to read
+`hue_family`/`is_title_card` back out of MongoDB or the warehouse — it
+still recomputes both from the source video independently, using its
+own copies of the same detection functions. The promotion so far means
+the values are now centrally available and validated (see Warehouse
+section below), not that the classifier already consumes them from
+there. Pointing the classifier at the warehouse instead of the raw
+video is a reasonable next step, not yet done, mainly to avoid
+disturbing a notebook that was mid-verification (fold-alignment bugs,
+significance testing) at the time this promotion was made.
 
 ## Warehouse — SQLite
 Clean, analysis-ready data. One row per film, fixed columns — a
@@ -88,22 +98,36 @@ genuinely relational shape, hence a relational database.
 
 **Database:** `data/warehouse/color_in_motion.db`, table `films`.
 
-**How it's built:** a MongoDB aggregation pipeline (`$group`, `$avg`,
-`$stdDevPop`) computes, for every `tconst`, the mean and standard
-deviation of brightness, temperature and saturation across all its
-frame documents. This result is joined (in pandas) with title, genre
-and year from the Source layer, and written into SQLite with
+**How it's built:** two MongoDB aggregation pipelines, both grouping by
+`tconst`. The first (`$group`, `$avg`, `$stdDevPop`) computes the mean
+and standard deviation of brightness, temperature and saturation across
+*all* frame documents, plus the percentage of frames in each of the 7
+`hue_family` values (via `$avg` of a `$cond` on equality — the fraction
+of frames matching a family is exactly its percentage). The second adds
+a `$match: {is_title_card: false}` stage before the same `$group`,
+producing the "filtered" equivalents (`_filtrato` suffix) of every
+metric above. Both results are joined (in pandas) with title, genre and
+year from the Source layer, and written into SQLite with
 `to_sql(..., if_exists="replace")`.
 
-**Validation performed:** the per-film means computed by the MongoDB
-aggregation were compared against the means computed directly in
-Python from the same source frames (two independent computation
-paths on the same raw data). They matched exactly, confirming the
-Mongo → SQLite pipeline introduces no error.
+**Validation performed:** two rounds, same method both times — compare
+the MongoDB aggregation against an independent computation in Python
+from the same source frames. Round 1 (original): brightness/
+temperature/saturation means matched exactly. Round 2 (after promoting
+`hue_family`/`is_title_card`): three sample films' hue-family
+percentages and filtered statistics were recomputed directly in Python
+(`color_distribution`, `curve_from_frames` on the title-card-filtered
+frame list) and compared against the MongoDB aggregation — all matched
+exactly. Both rounds confirm the Mongo → SQLite pipeline introduces no
+error.
 
-**Columns:** `tconst, brightness_media, brightness_std,
-temperature_media, temperature_std, saturation_media, saturation_std,
-n_secondi, primaryTitle, genere_principale, startYear`. 142 rows: 133
+**Columns (33 total):** the original `tconst, brightness_media,
+brightness_std, temperature_media, temperature_std, saturation_media,
+saturation_std, n_secondi, primaryTitle, genere_principale, startYear`,
+plus seven `colore_<famiglia>` percentages (red, orange, yellow, green,
+blue, purple, dark_neutral), six `*_filtrato` mean/std columns
+(brightness, temperature, saturation), seven `colore_<famiglia>_filtrato`
+percentages, `n_secondi_filtrato`, and `pct_title_card`. 142 rows: 133
 genre-labelled films + 9 auteur films (`genere_principale = "Auteur"`,
 excluded from genre-classification analysis, used only for the
 auteur-vs-genres comparison).
@@ -119,27 +143,35 @@ IMDb + TMDB
     -> SOURCE (CSV: film metadata, genre, trailer links)
     -> [download + per-frame colour extraction]
     -> STAGING (MongoDB: one document per film-second,
-                core colour metrics + mean_colour)
-    -> [aggregation: MongoDB $group / $avg / $stdDevPop]
-    -> WAREHOUSE (SQLite: one row per film, mean + std features)
+                colour metrics + mean_colour + hue_family + is_title_card)
+    -> [aggregation: two MongoDB pipelines - all frames, and
+        title-card-filtered ($match before $group)]
+    -> WAREHOUSE (SQLite: one row per film, mean + std features,
+                  hue-family percentages, filtered variants)
     -> analysis (classifier, descriptive charts) + dashboard
 ```
 
-Two side branches read directly from the SOURCE videos, bypassing
-staging, because they need per-frame detail the staging layer does not
-carry (see table above):
+One side branch still reads directly from the SOURCE videos, bypassing
+staging: the classifier notebook (`03_color_extraction.ipynb`)
+recomputes `hue_family`/title-card detection independently rather than
+reading the now-available warehouse columns (see the caveat in the
+staging section above).
 ```
-SOURCE videos -> [hue-family histogram]     -> colour-distribution experiment (descriptive only)
-SOURCE videos -> [frame uniformity check]   -> title-card-filter experiment (classifier variant)
+SOURCE videos -> [hue-family + title-card, computed inline] -> classifier notebook (03)
 ```
+This is temporary duplication, kept deliberately for now rather than
+rewiring a notebook that was mid-verification (fold-alignment bugs,
+significance testing — see `NOTES.md`) at the time `hue_family`/
+`is_title_card` were promoted to MongoDB.
 
 ## Design notes
 - Raw source data is never overwritten, so any step can be traced back.
 - Expensive work (extracting colour from 133+9 videos) is separated
   from cheap work (computing averages), so re-summarising doesn't
-  require re-reading the videos — except for the two exploratory
-  branches above, which by design trade re-computation cost for a
-  smaller, more stable staging schema.
+  require re-reading the videos — except for the classifier notebook's
+  still-independent computation of `hue_family`/title-card detection
+  (see Flow above), a deliberate, temporary duplication rather than a
+  design default.
 - Each storage layer uses the paradigm that matches its data's shape:
   CSV for small regular metadata (source), a document database for
   irregular frame-level sequences (staging), a relational database for
@@ -148,7 +180,14 @@ SOURCE videos -> [frame uniformity check]   -> title-card-filter experiment (cla
   because the assignment asks for it, but using each where its data
   actually fits.
 - Not everything a video *could* yield is stored centrally. Only
-  features reused by more than one process live in MongoDB; one-off
-  exploratory features are recomputed on demand. This avoids the
-  staging schema growing without bound every time a new idea is
-  tested, which would itself be a design smell.
+  features reused by more than one process, or part of the active
+  classifier pipeline, live in MongoDB; genuinely one-off exploratory
+  features are recomputed on demand. This avoids the staging schema
+  growing without bound every time a new idea is tested, which would
+  itself be a design smell.
+- This is a two-way door, not a one-time decision: `hue_family` and
+  `is_title_card` moved from "recomputed on demand" to "stored
+  centrally" once the classifier work they support stopped being a
+  discarded experiment and became part of the active pipeline. The
+  schema is expected to reflect what the analysis actually uses, even
+  when that changes after the schema was first designed.

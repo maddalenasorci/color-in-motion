@@ -612,6 +612,38 @@ narrow accuracy margin — Bilanciato was rejected on a categorical
 criterion (0% recognition on entire genres), which a significance test
 would not have changed either way.
 
+### Isolating saturation from title-card filtering
+
+The final chain applies saturation and title-card filtering in
+sequence, so the 31.8% → 34.2% → 34.4% progression (Distribuzione)
+cannot say which of the two changes caused what. A dedicated
+comparison applies each modification alone, from the same base, to
+separate their individual effects:
+
+| Genere | Base | + Saturazione (sola) | + Filtro cartelli (solo) |
+|---|---|---|---|
+| Action | 44% | 22% | 44% |
+| Comedy | 31% | 46% | 23% |
+| Crime | 37% | 42% | 37% |
+| Drama | 9% | 9% | 18% |
+| Horror | 28% | 44% | 28% |
+
+Saturation alone drives almost the entire aggregate gain (34.2%,
+essentially matching the full chain's 34.4%), but it is a trade, not a
+clean improvement: it roughly halves Action (44% → 22%) while lifting
+Comedy and Horror substantially. Filtering alone leaves the aggregate
+unchanged (31.8%) but doubles Drama's recognition (9% → 18%) at a
+small cost to Comedy.
+
+**Stated limit:** Drama has only 11 films in the entire dataset — about
+2 per cross-validation fold. A move from 9% to 18% can be a single film
+changing from misclassified to correctly classified, not a robust
+pattern. What can be said with confidence is the *direction* each
+modification pushes recognition (saturation trades Action for
+Comedy/Horror; filtering nudges Drama upward at Comedy's expense) — not
+that filtering "solves" Drama, which would require a dedicated
+significance test this analysis does not perform.
+
 ## Promoting winning features into MongoDB/SQLite
 
 `ARCHITECTURE.md` originally excluded hue-family distribution and

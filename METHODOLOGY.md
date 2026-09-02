@@ -167,15 +167,30 @@ per-genre performance, not the accuracy number in isolation.
 
 ## Headline finding
 
-Across every version tested — different colour representations,
-different balancing strategies, added saturation, frame filtering,
-isolated or combined — the same pattern holds: **colour reliably
-separates the most visually extreme genre (Horror) but does not reliably
-separate the genres that share a similar visual register** (Comedy,
-Crime, Drama). This was tested from multiple independent angles
-(re-weighting, physical resampling, an alternative feature space,
-frame-level cleaning) specifically to rule out that the limitation was
-an artefact of any one modelling choice. It was not: the same central
-finding survives every version of the pipeline, which is what makes it
-the project's central, evidence-backed conclusion rather than a
-one-off observation from a single model run.
+Across the six configurations tested (both colour representations, at
+each of the three pipeline stages — undersampled base, + saturation, +
+title-card filtering), one pattern holds without exception: **Drama is
+the only genre that never rises above 18% recognition, in any
+configuration.** With min–max ranges of 0–18% (Drama) versus 32–47%
+(Crime), 28–67% (Horror), 22–44% (Action) and 15–46% (Comedy), Drama is
+categorically apart from the other four — this is the project's most
+robust finding, because it survives every re-weighting, resampling,
+feature-space and frame-filtering variant tested.
+
+The rest of the picture is more uneven than a simple
+"Horror-separates-the-others-don't" story would suggest. Horror reaches
+the highest peaks observed anywhere in the project (up to 67%), but only
+under the Media representation; under Distribuzione it performs
+similarly to Action (28–44%), not distinctly better. Crime, rather than
+belonging with the weak genres, is in practice the most *stable*
+performer: it never drops below 32% in any of the six configurations,
+consistently well above the 20% chance baseline — a steadier signal
+than either Action or Comedy, both of which swing more widely
+(22–44% and 15–46% respectively) depending on the configuration.
+
+The evidence-backed conclusion is therefore narrower than "colour
+separates extreme genres, not central ones": **colour reliably fails on
+Drama specifically, and reliably succeeds on Crime specifically: the
+other three genres (Action, Comedy, Horror) fall in between, with
+Horror's apparent strength being conditional on which colour
+representation is used, not a fixed property of the genre.**
